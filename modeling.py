@@ -17,7 +17,9 @@ class Config(object):
         self.vocab_size=vocab_size
         self.vocab_vec_size=vocab_vec_size
         self.hidden_size=hidden_size
-        num_hidden_layers
+        self.num_hidden_layers=num_hidden_layers
+        self.num_attention_heads=num_attention_heads
+        self.intermediate_size=intermediate_size
 
 def get_assignment_map_from_checkpoint(tvars, init_checkpoint):
     """Compute the union of the current variables and checkpoint variables."""
