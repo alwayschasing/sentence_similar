@@ -5,6 +5,8 @@ import six
 import numpy as np
 import math
 import collections
+import copy
+
 
 class Config(object):
     def __init__(self,
@@ -20,6 +22,7 @@ class Config(object):
         self.num_hidden_layers=num_hidden_layers
         self.num_attention_heads=num_attention_heads
         self.intermediate_size=intermediate_size
+
 
 def get_assignment_map_from_checkpoint(tvars, init_checkpoint):
     """Compute the union of the current variables and checkpoint variables."""
@@ -45,7 +48,8 @@ def get_assignment_map_from_checkpoint(tvars, init_checkpoint):
     initialized_variable_names[name] = 1
     initialized_variable_names[name + ":0"] = 1
 
-    return (assignment_map, initialized_variable_names)
+    return assignment_map, initialized_variable_names
+
 
 def gelu(x):
     """Gaussian Error Linear Unit.
@@ -190,9 +194,11 @@ def layer_norm_and_dropout(input_tensor, dropout_prob, name=None):
     output_tensor = dropout(output_tensor, dropout_prob)
     return output_tensor
 
+
 def create_initializer(initializer_range=0.02):
-  """Creates a `truncated_normal_initializer` with the given range."""
-  return tf.truncated_normal_initializer(stddev=initializer_range)
+    """Creates a `truncated_normal_initializer` with the given range."""
+    return tf.truncated_normal_initializer(stddev=initializer_range)
+
 
 def attention_layer(from_tensor,
                     to_tensor,
@@ -285,7 +291,7 @@ def attention_layer(from_tensor,
         from_seq_length = from_shape[1]
         to_seq_length = to_shape[1]
     elif len(from_shape) == 2:
-        if (batch_size is None or from_seq_length is None or to_seq_length is None):
+        if batch_size is None or from_seq_length is None or to_seq_length is None:
             raise ValueError(
                 "When passing in rank 2 tensors to attention_layer, the values "
                 "for `batch_size`, `from_seq_length`, and `to_seq_length` "
@@ -487,7 +493,9 @@ def transformer_model(input_tensor,
         final_output = prev_output
         return final_output
 
+
 def embedding_postprocessor(input_tensor,
+                            num_heads,
                             use_position_embeddings=True,
                             position_embedding_name="position_embeddings",
                             initializer_range=0.02,
@@ -528,8 +536,7 @@ def embedding_postprocessor(input_tensor,
     return output
 
 
-
-class TransformerSimilar():
+class TransformerSimilar(object):
     def __init__(self,
                  config,
                  is_training,
@@ -561,7 +568,7 @@ class TransformerSimilar():
                     dropout_prob=config.hidden_dropout_prob)
 
             with tf.variable_scope("transformer"):
-                if input_mask != None:
+                if input_mask is not None:
                     attention_mask = create_attention_mask_from_input_mask(
                         input_ids, input_mask)
                 else:
