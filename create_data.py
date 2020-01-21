@@ -48,7 +48,7 @@ def create_train_data(input_files, output_file, drop_ratio=0.2):
                 wfp.write(positive_item_str)
 
                 sen_a = line
-                sen_b = lines[rng.randint(0,total_num-1)]
+                sen_b = lines[rng.randint(0,total_num-1)].rstrip()
                 items_a = jieba.cut(sen_a)
                 items_b = jieba.cut(sen_b)
                 negative_item_str = " ".join(items_a) + "\t" + " ".join(items_b) + "\t0\n"
@@ -64,8 +64,8 @@ def create_float_feature(values):
     return feature
 
 
-def create_train_recorddata(input_files,output_file,token_file):
-    tokenizer = tokenization.Tokenizer(token_file)
+def create_train_recorddata(input_files,output_file,vocab_file):
+    tokenizer = tokenization.Tokenizer(vocab_file)
     writer = tf.python_io.TFRecordWriter(output_file)
     for input_file in input_files:
         with open(input_file,"r") as fp:
@@ -80,23 +80,24 @@ def create_train_recorddata(input_files,output_file,token_file):
                 ids_a = tokenizer.translate2id(sen_a)
                 ids_b = tokenizer.translate2id(sen_b)
                 tf_example = tf.train.Example(features=tf.train.Features(feature={
-                    "input_a":ids_a,
-                    "input_b":ids_b,
-                    "label":label
+                    "input_a":create_int_feature(ids_a),
+                    "input_b":create_int_feature(ids_b),
+                    "labels":create_int_feature([label])
                 }))
                 writer.write(tf_example.SerializeToString())
     writer.close()
 
 
-def main():
+def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)
     raw_data_file = FLAGS.raw_data_file
     train_data_file = FLAGS.train_data_file
-    create_train_data(raw_data_file, train_data_file)
-    tf.logging.info("Writing to train data file:%s", train_data_file)
+    create_train_data([raw_data_file], train_data_file)
+    tf.logging.info("Writing to train data file:%s\n", train_data_file)
     recorddata_file = FLAGS.recorddata_file
-    create_train_recorddata(train_data_file, recorddata_file)
-    tf.logging.info("Writing to RecordData file:%s", recorddata_file)
+    vocab_file = FLAGS.vocab_file
+    create_train_recorddata([train_data_file], recorddata_file,vocab_file)
+    tf.logging.info("Writing to RecordData file:%s\n", recorddata_file)
 
 if __name__ == "__main__":
     flags.mark_flag_as_required("raw_data_file")
