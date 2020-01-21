@@ -18,7 +18,8 @@ class Config(object):
                  num_hidden_layers=4,
                  num_attention_heads=3,
                  intermediate_size=1024,
-                 embedding_table_trainable=False):
+                 embedding_table_trainable=False,
+                 max_seq_length=64):
         self.vocab_size=vocab_size
         self.vocab_vec_size=vocab_vec_size
         self.hidden_size=hidden_size
@@ -26,6 +27,7 @@ class Config(object):
         self.num_attention_heads=num_attention_heads
         self.intermediate_size=intermediate_size
         self.embedding_table_trainable=embedding_table_trainable
+        self.max_seq_length=max_seq_length
 
     @classmethod
     def from_dict(cls, json_object):

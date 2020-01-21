@@ -211,8 +211,7 @@ def main():
     model_fn = model_fn_builder(
         config,
         init_checkpoint,
-        embedding_table,
-        embedding_table_trainable)
+        embedding_table)
 
     estimator = tf.estimator.Estimator(
         model_fn=model_fn,
@@ -222,8 +221,9 @@ def main():
         warm_start_from=None)
 
     input_files = FLAGS.input_files
+    batch_size = FLAGS.batch_size
     if FLAGS.do_train:
-        train_input_fn = recordfile_input_fn_train(input_files,max_seq_length,batch_size)
+        train_input_fn = recordfile_input_fn_train(input_files, config.max_seq_length, batch_size)
         estimator.train(
             input_fn=train_input_fn,
             hooks=None,

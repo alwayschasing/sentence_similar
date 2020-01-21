@@ -21,6 +21,10 @@ def cmd_parse():
         "init checkpoint dir"
     )
     flags.DEFINE_integer(
+        "batch_size",32,
+        "batch size"
+    )
+    flags.DEFINE_integer(
         "save_summary_steps",10,
         "save_summary_steps"
     )
@@ -36,6 +40,5 @@ def cmd_parse():
         "log_step_count_steps",10,
         "log_step_count_steps"
     )
-
 
     return flags.FLAGS
