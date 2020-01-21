@@ -38,6 +38,22 @@ class Tokenizer(object):
             words.append(self.vocab[id])
         return words
 
+    def translate2id(self,sentence,is_split=True, delimeter=' '):
+        word_list = sentence.split(' ')
+        ids = []
+        for w in word_list:
+            if w in self.word2id:
+                ids.append(id)
+
+        return ids
+
+    def translate2word(self,ids):
+        word_list = []
+        for id in ids:
+            word_list.append(self.vocab[id])
+
+        return word_list
+
 
 def verify_data(words,vectors):
     count = len(words)

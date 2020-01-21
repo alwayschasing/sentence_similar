@@ -4,16 +4,19 @@ import modeling
 import tensorflow as tf
 from tensorflow.data import Dataset
 from create_data import create_model_item
+from cmd_parse import cmd_parse
 import tokenization
 import optimization
 import numpy as np
 
 
 flags = tf.flags
-FLAGS = flags.FLAGS
+# FLAGS = flags.FLAGS
+FLAGS = cmd_parse()
 
 def freeze_model():
     pass
+
 
 def recordfile_input_fn_train(input_files):
     def _decode_record(record,name_to_features):
@@ -29,6 +32,7 @@ def recordfile_input_fn_train(input_files):
     d = d.shuffle(buffer_size=100)
     d = d.map(lambda record:_decode_record(record,name_to_features)).batch(batch_size,drop_remainder=True)
     return d
+
 
 def file_input_fn_predict(input_files):
     # d = tf.data.Dataset.from_tensor_slices(input_files)
@@ -46,16 +50,18 @@ def file_input_fn_predict(input_files):
         output_shapes=(tf.TensorShape([seq_length])))
     return dataset
 
+
 def create_model(input_ids_a,
                  input_ids_b,
                  labels,
                  embedding_table,
+                 is_training,
                  config):
     with tf.variable_scope("similarmodel") as vs:
         embedding_table_tensor = tf.get_variable(
             "embedding_table",
             shape=[config.vocab_size, config.vocab_vec_size],
-            trainable=embedding_table_trainable)
+            trainable=config.embedding_table_trainable)
 
         def init_embedding_table(scaffold,sess):
             sess.run(embedding_table_tensor.initializer, {embedding_table_tensor.initial_value:embedding_table})
@@ -118,6 +124,7 @@ def model_fn_builder(config,
             input_ids_b,
             labels,
             embedding_table_tensor,
+            is_training,
             config)
 
         tvars = tf.trainable_variables()
@@ -160,20 +167,21 @@ def load_embedding_table(embedding_table_file):
 
 def main():
     tf.logging.set_verbosity(tf.logging.DEBUG)
-    config = modeling.Config(
-        vocab_size=636025,
-        vocab_vec_size=300,
-        hidden_size=1024,
-        num_hidden_layers=4,
-        num_attention_heads=3,
-        intermediate_size=1024)
+    # config = modeling.Config(
+    #     vocab_size=636025,
+    #     vocab_vec_size=300,
+    #     hidden_size=1024,
+    #     num_hidden_layers=4,
+    #     num_attention_heads=3,
+    #     intermediate_size=1024)
+    config = modeling.Config.from_json_file(FLAGS.config_file)
 
     tf.gfile.MakeDirs(FLAGS.output_dir)
     output_dir=FLAGS.output_dir
     input_file = FLAGS.input_file
     tf.logging.info("Input File:%s"%(input_file))
     init_checkpoint = FLAGS.init_checkpoint
-    embedding_table_file = FLAGS.embedding_table
+    embedding_table_file = config.embedding_table_file
     embedding_table = None
     if embedding_table_file:
         embedding_table = load_embedding_table(embedding_table_file)
@@ -194,6 +202,7 @@ def main():
         config,
         init_checkpoint,
         embedding_table)
+
     estimator = tf.estimator.Estimator(
         model_fn=model_fn,
         model_dir=output_dir,
@@ -201,7 +210,9 @@ def main():
         params=None,
         warm_start_from=None)
 
+    input_files = FLAGS.input_files
     if FLAGS.do_train:
+        train_input_fn = recordfile_input_fn_train(input_files)
         estimator.train(
             input_fn=train_input_fn,
             hooks=None,
@@ -209,17 +220,24 @@ def main():
             max_steps=None,
             saving_listeners=None)
     elif FLAGS.do_eval:
+        eval_input_fn = None
         estimator.evaluate(
             input_fn=eval_input_fn,
-            steps=None,
+            steps=100,
             hooks=None,
             checkpoint_path=None,
             name=None)
     else:
+        pred_input_fn = None
         estimator.predict(
             input_fn=pred_input_fn,
             predict_keys=None,
             hooks=None,
             checkpoint_path=None,
             yield_single_examples=True)
+
+
+if __name__ == "__main__":
+    flags.mark_flag_as_required("config_file")
+    tf.app.run()
 
