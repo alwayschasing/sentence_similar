@@ -86,7 +86,7 @@ def create_model(input_ids_a,
             input_ids_b,
             input_mask=None,
             embedding_table=embedding_table,
-            embedding_table_trainable=False,
+            embedding_table_trainable=config.embedding_table_trainable,
             scope=vs)
 
     output_layer_a = model_a.get_output()
@@ -102,7 +102,8 @@ def create_model(input_ids_a,
 
 def model_fn_builder(config,
                      init_checkpoint=None,
-                     embedding_table=None):
+                     embedding_table=None,
+                     embedding_table_trainable=False):
     
     def model_fn(features,labels,mode,params):
         tf.logging.info("*** Features ***")
@@ -167,7 +168,11 @@ def load_embedding_table(embedding_table_file):
         for line in fp:
             nums = line.rstrip().split(' ')
             embedding_table.append(nums)
+    embedding_vec_size = len(embedding_table[0])
+    unk_vec = np.random.rand(embedding_vec_size)
     embedding_table = np.as_array(embedding_table)
+    # first vector is the unknown token
+    embedding_table = np.insert(embedding_table,0,unk_vec,axis=0)
     return embedding_table
 
 def main():
@@ -206,7 +211,8 @@ def main():
     model_fn = model_fn_builder(
         config,
         init_checkpoint,
-        embedding_table)
+        embedding_table,
+        embedding_table_trainable)
 
     estimator = tf.estimator.Estimator(
         model_fn=model_fn,
