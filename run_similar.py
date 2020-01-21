@@ -18,7 +18,12 @@ def freeze_model():
     pass
 
 
-def recordfile_input_fn_train(input_files):
+def recordfile_input_fn_train(input_files,seq_length,batch_size):
+    name_to_features = {
+        "input_ids_a":tf.io.FixedLenFeature([seq_length],tf.int64),
+        "input_ids_b":tf.io.FixedLenFeature([seq_length],tf.int64),
+        "labels":tf.io.FixedLenFeature([1],tf.int64)
+    }
     def _decode_record(record,name_to_features):
         """"""
         example = tf.parse_single_example(record, name_to_features)
@@ -212,7 +217,7 @@ def main():
 
     input_files = FLAGS.input_files
     if FLAGS.do_train:
-        train_input_fn = recordfile_input_fn_train(input_files)
+        train_input_fn = recordfile_input_fn_train(input_files,max_seq_length,batch_size)
         estimator.train(
             input_fn=train_input_fn,
             hooks=None,

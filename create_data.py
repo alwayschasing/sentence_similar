@@ -16,6 +16,8 @@ flags.DEFINE_string("recorddata_file",None,
                     "record data file")
 flags.DEFINE_string("vocab_file",None,
                     "vocab word and vector file")
+flags.DEFINE_integer("max_seq_length",64,
+                    "max_seq_length")
 
 
 def create_model_item():
@@ -64,9 +66,9 @@ def create_float_feature(values):
     return feature
 
 
-def create_train_recorddata(input_files,output_file,vocab_file):
+def create_train_recorddata(input_files,output_file,vocab_file,max_seq_length):
     tokenizer = tokenization.Tokenizer(vocab_file)
-    writer = tf.python_io.TFRecordWriter(output_file)
+    writer = tf.io.TFRecordWriter(output_file)
     for input_file in input_files:
         with open(input_file,"r") as fp:
             for line in fp:
@@ -79,9 +81,20 @@ def create_train_recorddata(input_files,output_file,vocab_file):
                 label = int(items[2])
                 ids_a = tokenizer.translate2id(sen_a)
                 ids_b = tokenizer.translate2id(sen_b)
+                if len(ids_a) > max_seq_length:
+                    ids_a = ids_a[0:max_seq_length]
+                else:
+                    # ids_a = list(map(lambda l:l + [0]*(max_seq_length-len(l)), ids_a))
+                    ids_a = ids_a + [0]*(max_seq_length-len(ids_a))
+
+                if len(ids_b) > max_seq_length:
+                    ids_b = ids_b[0:max_seq_length]
+                else:
+                    # ids_b = list(map(lambda l:l + [0]*(max_seq_length-len(l)), ids_b))
+                    ids_b = ids_b + [0]*(max_seq_length-len(ids_b))
                 tf_example = tf.train.Example(features=tf.train.Features(feature={
-                    "input_a":create_int_feature(ids_a),
-                    "input_b":create_int_feature(ids_b),
+                    "input_ids_a":create_int_feature(ids_a),
+                    "input_ids_b":create_int_feature(ids_b),
                     "labels":create_int_feature([label])
                 }))
                 writer.write(tf_example.SerializeToString())
@@ -96,7 +109,8 @@ def main(_):
     tf.logging.info("Writing to train data file:%s\n", train_data_file)
     recorddata_file = FLAGS.recorddata_file
     vocab_file = FLAGS.vocab_file
-    create_train_recorddata([train_data_file], recorddata_file,vocab_file)
+    max_seq_length = FLAGS.max_seq_length
+    create_train_recorddata([train_data_file], recorddata_file,vocab_file,max_seq_length)
     tf.logging.info("Writing to RecordData file:%s\n", recorddata_file)
 
 if __name__ == "__main__":
