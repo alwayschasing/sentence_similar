@@ -6,22 +6,46 @@ import numpy as np
 import math
 import collections
 import copy
+import re
+import json
 
 
 class Config(object):
     def __init__(self,
-                 vocab_size,
-                 vocab_vec_size,
+                 vocab_size=0,
+                 vocab_vec_size=0,
                  hidden_size=1024,
                  num_hidden_layers=4,
                  num_attention_heads=3,
-                 intermediate_size=1024):
+                 intermediate_size=1024,
+                 embedding_table_trainable=False):
         self.vocab_size=vocab_size
         self.vocab_vec_size=vocab_vec_size
         self.hidden_size=hidden_size
         self.num_hidden_layers=num_hidden_layers
         self.num_attention_heads=num_attention_heads
         self.intermediate_size=intermediate_size
+        self.embedding_table_trainable=embedding_table_trainable
+
+    @classmethod
+    def from_dict(cls, json_object):
+        config = Config()
+        for key, value in six.iteritems(json_object):
+            config.__dict__[key] = value
+        return config
+
+    @classmethod
+    def from_json_file(cls, json_file):
+        with tf.gfile.GFile(json_file, "r") as reader:
+            text = reader.read()
+        return cls.from_dict(json.loads(text))
+
+    def to_dict(self):
+        output = copy.deepcopy(self.__dict__)
+        return output
+
+    def to_json_string(self):
+        return json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n"
 
 
 def get_assignment_map_from_checkpoint(tvars, init_checkpoint):
@@ -304,8 +328,8 @@ def attention_layer(from_tensor,
     #   N = `num_attention_heads`
     #   H = `size_per_head`
 
-    from_tensor_2d = reshape_to_matrix(from_tensor)
-    to_tensor_2d = reshape_to_matrix(to_tensor)
+    # from_tensor_2d = reshape_to_matrix(from_tensor)
+    # to_tensor_2d = reshape_to_matrix(to_tensor)
 
     # `query_layer` = [B*F, N*H]
     query_layer = tf.layers.dense(
