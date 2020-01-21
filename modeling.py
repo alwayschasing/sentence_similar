@@ -304,8 +304,8 @@ def attention_layer(from_tensor,
     #   N = `num_attention_heads`
     #   H = `size_per_head`
 
-    from_tensor_2d = reshape_to_matrix(from_tensor)
-    to_tensor_2d = reshape_to_matrix(to_tensor)
+    # from_tensor_2d = reshape_to_matrix(from_tensor)
+    # to_tensor_2d = reshape_to_matrix(to_tensor)
 
     # `query_layer` = [B*F, N*H]
     query_layer = tf.layers.dense(

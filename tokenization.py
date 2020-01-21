@@ -38,6 +38,7 @@ class Tokenizer(object):
             words.append(self.vocab[id])
         return words
 
+
 def verify_data(words,vectors):
     count = len(words)
     if count != len(vectors) or count == 0:
