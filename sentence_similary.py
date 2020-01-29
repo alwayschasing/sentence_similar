@@ -162,12 +162,15 @@ def model_fn_builder(config,
         return output_spec
     return model_fn
 
-def load_embedding_table(embedding_table_file):
+def load_embedding_table(embedding_table_file,binary=True):
     embedding_table = []
-    with open(embedding_table_file) as fp:
-        for line in fp:
-            nums = line.rstrip().split(' ')
-            embedding_table.append(nums)
+    if binary != True:
+        with open(embedding_table_file) as fp:
+            for line in fp:
+                nums = line.rstrip().split(' ')
+                embedding_table.append(nums)
+    else:
+        embedding_table = np.load(embedding_table_file)
     embedding_vec_size = len(embedding_table[0])
     unk_vec = np.random.rand(embedding_vec_size)
     embedding_table = np.as_array(embedding_table)
