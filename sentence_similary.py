@@ -175,7 +175,7 @@ def load_embedding_table(embedding_table_file):
     embedding_table = np.insert(embedding_table,0,unk_vec,axis=0)
     return embedding_table
 
-def main():
+def main(_):
     tf.logging.set_verbosity(tf.logging.DEBUG)
     # config = modeling.Config(
     #     vocab_size=636025,
@@ -191,9 +191,9 @@ def main():
     input_file = FLAGS.input_file
     tf.logging.info("Input File:%s"%(input_file))
     init_checkpoint = FLAGS.init_checkpoint
-    embedding_table_file = config.embedding_table_file
+    embedding_table_file = FLAGS.embedding_table_file
     embedding_table = None
-    if embedding_table_file:
+    if embedding_table_file is not None:
         embedding_table = load_embedding_table(embedding_table_file)
 
     run_config = tf.estimator.RunConfig(
@@ -220,15 +220,16 @@ def main():
         params=None,
         warm_start_from=None)
 
-    input_files = FLAGS.input_files
+    input_files = [input_file]
     batch_size = FLAGS.batch_size
     if FLAGS.do_train:
+        train_steps = FLAGS.train_steps
         train_input_fn = recordfile_input_fn_train(input_files, config.max_seq_length, batch_size)
         estimator.train(
             input_fn=train_input_fn,
             hooks=None,
-            steps=None,
-            max_steps=None,
+            steps=train_steps,
+            max_steps=10000,
             saving_listeners=None)
     elif FLAGS.do_eval:
         eval_input_fn = None
