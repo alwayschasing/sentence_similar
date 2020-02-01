@@ -100,7 +100,6 @@ def create_train_recorddata(input_files,output_file,vocab_file,max_seq_length):
                 writer.write(tf_example.SerializeToString())
     writer.close()
 
-
 def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)
     raw_data_file = FLAGS.raw_data_file

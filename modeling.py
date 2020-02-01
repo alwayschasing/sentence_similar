@@ -19,7 +19,9 @@ class Config(object):
                  num_attention_heads=3,
                  intermediate_size=1024,
                  embedding_table_trainable=False,
-                 max_seq_length=64):
+                 max_seq_length=64,
+                 max_position_embeddings=64,
+                 hidden_dropout_prob=0.1):
         self.vocab_size=vocab_size
         self.vocab_vec_size=vocab_vec_size
         self.hidden_size=hidden_size
@@ -28,6 +30,8 @@ class Config(object):
         self.intermediate_size=intermediate_size
         self.embedding_table_trainable=embedding_table_trainable
         self.max_seq_length=max_seq_length
+        self.max_position_embeddings=max_position_embeddings
+        self.hidden_dropout_prob=hidden_dropout_prob
 
     @classmethod
     def from_dict(cls, json_object):
@@ -208,10 +212,9 @@ def dropout(input_tensor, dropout_prob):
 
 def layer_norm(input_tensor, name=None):
     """Run layer normalization on the last dimension of the tensor."""
-    # return tf.contrib.layers.layer_norm(
-        # inputs=input_tensor, begin_norm_axis=-1, begin_params_axis=-1, scope=name)
-    return tf.layers.BatchNormalization(
-        inputs=input_tensor)
+    return tf.contrib.layers.layer_norm(
+        inputs=input_tensor, begin_norm_axis=-1, begin_params_axis=-1, scope=name)
+    # return tf.keras.layers.LayerNormalization(axis=-1)
 
 
 def layer_norm_and_dropout(input_tensor, dropout_prob, name=None):
@@ -224,6 +227,26 @@ def layer_norm_and_dropout(input_tensor, dropout_prob, name=None):
 def create_initializer(initializer_range=0.02):
     """Creates a `truncated_normal_initializer` with the given range."""
     return tf.truncated_normal_initializer(stddev=initializer_range)
+
+def reshape_to_matirx(input_tensor):
+    ndims = input_tensor.shape.ndims
+    if ndims < 2:
+        raise ValueError("Input tensor must have at least rank 2. Shape = %s" %
+                         (input_tensor.shape))
+    if ndims == 2:
+        return input_tensor
+
+    width = input_tensor.shape[-1]
+    output_tensor = tf.reshape(input_tensor,[-1,width])
+    return output_tensor
+
+def reshape_from_matrix(output_tensor, ori_shape_list):
+    if len(ori_shape_list) == 2:
+        return output_tensor
+    output_shape = get_shape_list(output_tensor)
+    ori_dims = ori_shape_list[0:-1]
+    width = output_shape[-1]
+    return tf.reshape(output_tensor, ori_dims + [width])
 
 
 def attention_layer(from_tensor,
@@ -441,7 +464,7 @@ def transformer_model(input_tensor,
     """
     if  hidden_size % num_attention_heads != 0:
         raise ValueError(
-            "" % ())
+            "hidden_size:%d\tnum_attention_heads:%d" % (hidden_size,num_attention_heads))
 
     attention_head_size = int(hidden_size / num_attention_heads)
     input_shape = get_shape_list(input_tensor, expected_rank=3)
@@ -510,13 +533,17 @@ def transformer_model(input_tensor,
                 prev_output = layer_output
                 all_layer_outputs.append(layer_output)
 
+
     if do_return_all_layers:
         final_outputs = []
         for layer_output in all_layer_outputs:
-            final_outputs.append(final_outputs)
+            final_output = reshape_from_matrix(layer_output, input_shape)
+            final_outputs.append(final_output)
+            check_shape = get_shape_list(final_output,expected_rank=3)
+            tf.logging.info("transformer output:%s"%(str(check_shape)))
         return final_outputs
     else:
-        final_output = prev_output
+        final_output = reshape_from_matrix(prev_output, input_shape)
         return final_output
 
 
@@ -538,8 +565,8 @@ def embedding_postprocessor(input_tensor,
 
     output = input_tensor
     if use_position_embeddings:
-        assert_op = tf.assert_less_equal(seq_length,max_position_embeddings)
-        with tf.control_depedencies([assert_op]):
+        assert_op = tf.Assert(tf.less_equal(seq_length,max_position_embeddings),[seq_length])
+        with tf.control_dependencies([assert_op]):
             full_position_embeddings = tf.get_variable(
                 name=position_embedding_name,
                 shape=[max_position_embeddings,width],
@@ -579,9 +606,10 @@ class TransformerSimilar(object):
         input_shape = get_shape_list(input_ids, expected_rank=2)
         batch_size = input_shape[0]
         seq_length = input_shape[1]
+        tf.logging.info("TS batch_size:%d, seq_length:%d"%(batch_size,seq_length))
         
         with tf.variable_scope(scope, default_name="similarmodel"):
-            with tf.variable_scope("embeddings"):
+            with tf.variable_scope("embeddings",reuse=tf.AUTO_REUSE):
                 self.embedding_table = embedding_table
                 self.embedding_output = tf.nn.embedding_lookup(embedding_table,input_ids)
                 self.embedding_output = embedding_postprocessor(
@@ -589,11 +617,12 @@ class TransformerSimilar(object):
                     num_heads=config.num_attention_heads,
                     use_position_embeddings=True,
                     position_embedding_name="position_embeddings",
-                    initializer_range=config.initializer_range,
+                    initializer_range=0.02,
                     max_position_embeddings=config.max_position_embeddings,
                     dropout_prob=config.hidden_dropout_prob)
-
-            with tf.variable_scope("transformer"):
+            check_shape = get_shape_list(self.embedding_output, expected_rank=3)
+            tf.logging.info("embedding_output:%d,%d,%d"%(check_shape[0],check_shape[1],check_shape[2]))
+            with tf.variable_scope("transformer",reuse=tf.AUTO_REUSE):
                 if input_mask is not None:
                     attention_mask = create_attention_mask_from_input_mask(
                         input_ids, input_mask)
@@ -602,17 +631,17 @@ class TransformerSimilar(object):
                 self.all_encoder_layers = transformer_model(
                     input_tensor=self.embedding_output,
                     attention_mask=attention_mask,
-                    hidden_size=200,
-                    num_hidden_layers=4,
-                    num_attention_heads=3,
-                    intermediate_size=1024,
+                    hidden_size=config.hidden_size,
+                    num_hidden_layers=config.num_hidden_layers,
+                    num_attention_heads=config.num_attention_heads,
+                    intermediate_size=config.intermediate_size,
                     intermediate_act_fn=gelu,
                     hidden_dropout_prob=0.1,
                     initializer_range=0.02,
                     share_parameter_across_layers=True,
-                    do_return_all_layers=False,
+                    do_return_all_layers=True,
                     attention_probs_dropout_prob=0.1)
-            with tf.variable_scope("pooler"):
+            with tf.variable_scope("pooler",reuse=tf.AUTO_REUSE):
                 self.output = self.all_encoder_layers[-1]
 
     def get_output(self):
