@@ -102,6 +102,7 @@ def create_model(input_ids_a,
         logits=logits,
         name=None))
     return (loss, probabilities)
+
 def model_fn_builder(config,
                      init_checkpoint=None,
                      embedding_table=None,
@@ -143,17 +144,22 @@ def model_fn_builder(config,
         output_spec = None
         if mode == tf.estimator.ModeKeys.TRAIN:
             train_op = optimization.create_optimizer(loss,0.01,10,1,False)
+            export_output = {"predict":tf.estimator.export.PredictOutput(probabilities)}
             output_spec = tf.estimator.EstimatorSpec(
                 mode=mode,
                 loss=loss,
                 train_op=train_op,
-                scaffold=scaffold)
+                scaffold=scaffold,
+                export_outputs=export_output)
         elif mode == tf.estimator.ModeKeys.EVAL:
             def metric_fn():
                 pass
             output_spec = tf.estimator.EstimatorSpec()
         else:
-            output_spec = None
+            output_spec = tf.estimator.EstimatorSpec(
+                mode=mode,
+                predictions=probabilities
+                )
         return output_spec
     return model_fn
 def load_embedding_table(embedding_table_file,binary=True):
@@ -191,12 +197,12 @@ def main(_):
     if embedding_table_file is not None:
         embedding_table = load_embedding_table(embedding_table_file)
     run_config = tf.estimator.RunConfig(
-        save_summary_steps=10,
+        save_summary_steps=3,
         save_checkpoints_steps=3,
         session_config=None,
         keep_checkpoint_max=5,
         keep_checkpoint_every_n_hours=10000,
-        log_step_count_steps=10,
+        log_step_count_steps=1,
         train_distribute=None,
         device_fn=None,
         protocol=None,
@@ -223,6 +229,14 @@ def main(_):
             steps=train_steps,
             max_steps=None,
             saving_listeners=None)
+        # save model
+        def serving_input_receiver_fn():
+            features = {"input_ids_a":tf.placeholder(dtype=tf.int64,shape=[None,64],name="input_ids_a"),
+                        "input_ids_b":tf.placeholder(dtype=tf.int64,shape=[None,64],name="input_ids_b"),
+                        "labels":tf.placeholder(dtype=tf.int64,shape=[None,1],name="labels")}
+            return tf.estimator.export.ServingInputReceiver(features=features,receiver_tensors=features)
+        estimator.export_saved_model("saved_model",serving_input_receiver_fn)
+
     elif FLAGS.do_eval:
         eval_input_fn = None
         estimator.evaluate(

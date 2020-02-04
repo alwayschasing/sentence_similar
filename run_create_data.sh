@@ -9,4 +9,5 @@ python create_data.py \
     --raw_data_file=$raw_data_file \
     --train_data_file=$train_data_file \
     --recorddata_file=$recorddata_file \
-    --vocab_file=$vocab_file
+    --vocab_file=$vocab_file \
+    --max_seq_length=64
